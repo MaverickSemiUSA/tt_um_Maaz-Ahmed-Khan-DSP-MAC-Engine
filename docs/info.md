@@ -1,130 +1,62 @@
-# DSP MAC Engine
+## How it works
 
-**Tiny Tapeout project:** `tt_um_mac_engine`  
-**Author:** Maaz Ahmed Khan  
-**Technology:** IHP SG13G2 (`ihp-sg13g2`)  
-**Tile size:** 1 × 1  
+The DSP MAC Engine is an 8-bit signed multiply-accumulate datapath.
 
-## Project Description
+Two signed 8-bit operands are loaded through the `ui_in` input bus using
+control signals on `uio_in`. When `mac_en` is asserted, the two operands are
+multiplied to produce a signed 16-bit product. The product is sign-extended
+to 24 bits and added to the internal 24-bit accumulator.
 
-DSP MAC Engine is an 8-bit signed multiply-accumulate hardware block. Two 8-bit signed operands are loaded through the 8-bit `ui_in` bus using control strobes on `uio_in`. A signed 8 × 8 multiplication generates a 16-bit product, which is sign-extended into a 24-bit accumulator. The accumulator can be cleared and read a byte at a time through `uo_out`.
+The accumulator can be cleared using `clr_acc`. Its 24-bit value can be read
+one byte at a time through `uo_out` using the `rd_next` control signal.
 
-The design was developed as a compact Tiny Tapeout DSP datapath suitable for demonstrating arithmetic acceleration and serial/byte-oriented result readout.
+The input and control signals are:
 
-## Architecture
+- `ui_in[7:0]`: 8-bit signed operand data bus
+- `uio_in[0]`: `load_a` — loads the first operand
+- `uio_in[1]`: `load_b` — loads the second operand
+- `uio_in[2]`: `mac_en` — performs the multiply-accumulate operation
+- `uio_in[3]`: `clr_acc` — clears the accumulator
+- `uio_in[4]`: `rd_next` — advances the accumulator byte being read
+- `uio_in[7:5]`: unused
 
-![Architecture diagram](docs/architecture.svg)
+The 24-bit accumulator is presented through `uo_out[7:0]` one byte at a
+time. This allows the complete accumulated result to be read using the
+8-bit Tiny Tapeout output bus.
 
-The top-level module is **`tt_um_mac_engine`**, defined in `src/rtl/project.v`.
+The design operates synchronously from the Tiny Tapeout `clk` input and
+uses an active-low reset through `rst_n`.
 
-## Specifications
+## How to test
 
-| Parameter | Value |
-|---|---|
-| Technology | IHP SG13G2 |
-| Design type | Sequential |
-| Input data width | 8 bits |
-| Output width | 8 bits |
-| Internal accumulator | 24 bits |
-| Multiplier | Signed 8 × 8 |
-| Clock | 50 MHz (20 ns period) |
-| Tiles | 1 × 1 |
-| Final instances | 2191 |
-| Standard-cell instances | 817 |
-| Final core area | 23770.5 µm² |
-| Final die area | 31318.4 µm² |
-| Final utilization | 43.94% |
-| Total power | 1.322 mW |
-| Setup worst slack | 11.7616 ns |
-| Hold worst slack | 0.1227 ns |
+The design can be tested by applying a clock and reset, loading two signed
+8-bit operands, and then enabling the MAC operation.
 
-## Pin Usage
+For example, to perform:
 
-- `ui_in[7:0]`: operand data bus.
-- `uo_out[7:0]`: selected byte of the 24-bit accumulator.
-- `uio_in[0]`: `load_a`.
-- `uio_in[1]`: `load_b`.
-- `uio_in[2]`: `mac_en`.
-- `uio_in[3]`: `clr_acc`.
-- `uio_in[4]`: `rd_next`.
-- `uio_in[7:5]`: unused inputs.
+`3 × 5 = 15`
 
-## Verification
+load `3` into operand A using `load_a`, load `5` into operand B using
+`load_b`, and assert `mac_en` for a clock cycle.
 
-The cocotb test applies reset, loads A = 3 and B = 5, performs one MAC operation, and checks that the output is 15. The recorded test result is stored in `sim/results.xml`; the waveform is stored in `sim/tb.vcd`.
+The resulting accumulator value can then be read through `uo_out[7:0]`
+using `rd_next`.
 
-## Physical Design / Hardening
+The supplied Cocotb testbench performs reset, loads A = 3 and B = 5,
+executes one multiply-accumulate operation, and verifies that the resulting
+value is 15.
 
-The project was hardened using the LibreLane/Tiny Tapeout flow on IHP SG13G2. The curated repository keeps the major physical-design stages requested by the submission format: floorplan, PDN, global/detailed placement, CTS, global/detailed routing, metal fill, STA, sign-off, and final GDS.
+The accumulator can also be cleared using `clr_acc` before starting a new
+calculation.
 
-### Final sign-off evidence
+## External hardware
 
-| Check | Result |
-|---|---:|
-| Magic DRC errors | 0 |
-| KLayout DRC errors | 0 |
-| XOR differences | 0 |
-| LVS errors | 0 |
-| LVS unmatched devices | 0 |
-| LVS unmatched nets | 0 |
-| LVS unmatched pins | 0 |
-| Antenna violating nets | 0 |
-| Antenna violating pins | 0 |
-| Route DRC errors | 0 |
-| Setup violations | 0 |
-| Hold violations | 0 |
-| Max slew violations | 0 |
-| Max cap violations | 0 |
-| Power-grid violations | 0 |
+No external hardware is required for simulation.
 
-The recorded manufacturability report states that **Antenna, LVS, and DRC passed**. See `signoff/manufacturability.rpt`.
+For a physical demonstration, the `ui_in` bus can be driven by an external
+digital controller or FPGA, while the `uio_in` control signals can be used
+to control operand loading, MAC execution, accumulator clearing, and result
+readout.
 
-## Evidence Screenshots
-
-The `evidence/` directory contains screenshots generated from the recorded flow outputs, including simulation, synthesis, final metrics, STA, DRC, LVS, IR drop, manufacturability, and the final hardened layout.
-
-![Final layout](evidence/final_layout_record.png)
-
-## Repository Structure
-
-```text
-Maaz-Ahmed-Khan-DSP-MAC-Engine/
-├── README.md
-├── info.yaml
-├── src/
-│   ├── rtl/
-│   │   └── project.v
-│   └── sim/
-│       ├── tb.v
-│       ├── test.py
-│       └── Makefile
-├── sim/
-│   ├── results.xml
-│   └── tb.vcd
-├── synth/
-├── postsynth/
-├── floorplan/
-├── pdn/
-├── placement/
-├── cts/
-├── routing/
-├── fill/
-├── sta/
-├── signoff/
-├── gds/
-├── config/
-├── docs/
-└── evidence/
-```
-
-## Important Files
-
-- RTL: `src/rtl/project.v`
-- Cocotb verification: `src/sim/test.py`
-- Final GDS: `gds/tt_um_mac_engine.gds`
-- Final LEF: `gds/tt_um_mac_engine.lef`
-- Final DEF: `gds/tt_um_mac_engine.def`
-- Final ODB: `gds/tt_um_mac_engine.odb`
-- STA summary: `sta/summary.rpt`
-- Manufacturability: `signoff/manufacturability.rpt`
-- Metrics: `signoff/metrics.csv`
+The 8-bit `uo_out` bus can be connected to a logic analyzer, FPGA, or other
+digital interface to observe the accumulator result.
